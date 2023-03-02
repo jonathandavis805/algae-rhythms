@@ -50,7 +50,6 @@ export default function Home() {
         axios.get(`http://127.0.0.1:8080/test/${index}`).then(res => {
             console.log(res);
         })
-
     }, [index])
     return (
         <>

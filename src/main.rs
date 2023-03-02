@@ -1,10 +1,13 @@
 use std::cmp::min;
 use std::fmt::format;
 use std::fs::File;
-
-use rand::Rng;
+use std::io::Read;
+use std::ops::Index;
+use std::slice::SliceIndex;
 
 use actix_web::{App, get, HttpResponse, HttpServer, post, Responder, web};
+use actix_web::web::Data;
+use rand::Rng;
 
 use crate::sorting::{insertion, selection};
 
@@ -23,27 +26,48 @@ fn save_sorts() {
 }
 
 
-#[get("test/{id}")]
-async fn hello(id: web::Path<i32>) -> impl Responder {
-    HttpResponse::Ok().append_header(("Access-Control-Allow-Origin", "*")).body(format!("{:?}",id.into_inner()))
+#[get("{sort_type}/{index}")]
+async fn get_sort(sort_type: web::Path<String>, index: web::Path<usize>, state: web::Data<State>) -> impl Responder {
+    println!("sort_type: {}", sort_type);
+    println!("index: {}", index);
+    let sort_value = sort_type.into_inner().as_str();
+    let index = index.into_inner();
+    let e = match sort_value {
+        "selection" => {
+            Some(state.selection[index].clone())
+        }
+        "insertion" => {
+            Some(state.insertion[index].clone())
+        }
+        _ => {
+            None
+        }
+    };
+    HttpResponse::Ok().append_header(("Access-Control-Allow-Origin", "*")).body(format!("{:?}", index))
 }
 
-#[post("/echo")]
-async fn echo(req_body: String) -> impl Responder {
-    HttpResponse::Ok().body(req_body)
-}
-
-async fn manual_hello() -> impl Responder {
-    HttpResponse::Ok().append_header(("Access-Control-Allow-Origin", "*")).body("Hey there!")
+#[derive(Clone)]
+struct State {
+    selection: Vec<Vec<i32>>,
+    insertion: Vec<Vec<i32>>,
 }
 
 #[actix_web::main]
 async fn main() -> std::io::Result<()> {
+    let mut selection_data = [];
+    File::open("./sorted/selection.json").unwrap().read(&mut selection_data).unwrap();
+    let selection_vec: Vec<Vec<i32>> = serde_json::from_slice(selection_data.as_ref()).expect("TODO: panic message");
+    let mut insertion_data = [];
+    File::open("./sorted/insertion.json").unwrap().read(&mut insertion_data).unwrap();
+    let insertion_vec: Vec<Vec<i32>> = serde_json::from_slice(insertion_data.as_ref()).expect("TODO: panic message");
+    let state = State {
+        selection: selection_vec,
+        insertion: insertion_vec,
+    };
     HttpServer::new(|| {
         App::new()
-            .service(hello)
-            .service(echo)
-            .route("/hey", web::get().to(manual_hello))
+            .app_data(Data::new(state))
+            .service(get_sort)
     })
         .bind(("127.0.0.1", 8080))?
         .run()
