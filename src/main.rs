@@ -27,23 +27,25 @@ fn save_sorts() {
 
 
 #[get("{sort_type}/{index}")]
-async fn get_sort(sort_type: web::Path<String>, index: web::Path<usize>, state: web::Data<State>) -> impl Responder {
-    println!("sort_type: {}", sort_type);
-    println!("index: {}", index);
-    let sort_value = sort_type.into_inner().as_str();
-    let index = index.into_inner();
-    let e = match sort_value {
+async fn get_sort(params: web::Path<(String, usize)>, state: Data<State>) -> impl Responder {
+    print!("request received");
+    let params_inner = params.into_inner();
+    println!("sort_type: {}", params_inner.0);
+    println!("index: {}", params_inner.1);
+    let index = params_inner.1;
+    match params_inner.0.as_str() {
         "selection" => {
-            Some(state.selection[index].clone())
+            let val = Some(state.selection[index].clone());
+            HttpResponse::Ok().append_header(("Access-Control-Allow-Origin", "*")).body(format!("{:?}", val))
         }
         "insertion" => {
-            Some(state.insertion[index].clone())
+            let val = Some(state.insertion[index].clone());
+            HttpResponse::Ok().append_header(("Access-Control-Allow-Origin", "*")).body(format!("{:?}", val))
         }
         _ => {
-            None
+            HttpResponse::BadRequest().append_header(("Access-Control-Allow-Origin", "*")).body(format!("these aren't the droids you're looking for"))
         }
-    };
-    HttpResponse::Ok().append_header(("Access-Control-Allow-Origin", "*")).body(format!("{:?}", index))
+    }
 }
 
 #[derive(Clone)]
@@ -54,17 +56,17 @@ struct State {
 
 #[actix_web::main]
 async fn main() -> std::io::Result<()> {
-    let mut selection_data = [];
-    File::open("./sorted/selection.json").unwrap().read(&mut selection_data).unwrap();
-    let selection_vec: Vec<Vec<i32>> = serde_json::from_slice(selection_data.as_ref()).expect("TODO: panic message");
-    let mut insertion_data = [];
-    File::open("./sorted/insertion.json").unwrap().read(&mut insertion_data).unwrap();
-    let insertion_vec: Vec<Vec<i32>> = serde_json::from_slice(insertion_data.as_ref()).expect("TODO: panic message");
-    let state = State {
-        selection: selection_vec,
-        insertion: insertion_vec,
-    };
     HttpServer::new(|| {
+        let mut selection_data = Vec::new();
+        File::open("/Users/jd/repos/algae-rhythms/sorted/selection.json").unwrap().read_to_end(&mut selection_data).unwrap();
+        let selection_vec: Vec<Vec<i32>> = serde_json::from_slice(selection_data.as_ref()).expect("TODO: panic message");
+        let mut insertion_data = Vec::new();
+        File::open("/Users/jd/repos/algae-rhythms/sorted/insertion.json").unwrap().read_to_end(&mut insertion_data).unwrap();
+        let insertion_vec: Vec<Vec<i32>> = serde_json::from_slice(insertion_data.as_ref()).expect("TODO: panic message");
+        let state = State {
+            selection: selection_vec,
+            insertion: insertion_vec,
+        };
         App::new()
             .app_data(Data::new(state))
             .service(get_sort)
