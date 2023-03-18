@@ -13,7 +13,9 @@ use crate::sorting::{insertion, selection};
 
 mod sorting;
 
-fn save_sorts() {
+#[post("save")]
+async fn save_sorts() -> impl Responder {
+    print!("saving new sorts");
     let mut rng = rand::thread_rng();
     let selection_file: File = File::create("./sorted/selection.json").unwrap();
     let insertion_file: File = File::create("./sorted/insertion.json").unwrap();
@@ -23,6 +25,7 @@ fn save_sorts() {
     selection(&mut selection_vec, Some(selection_file));
     let mut insertion_vec = rand_vec.clone();
     insertion(&mut insertion_vec, Some(insertion_file));
+    HttpResponse::Ok().append_header(("Access-Control-Allow-Origin", "*")).body(format!("new sorts saved"))
 }
 
 
@@ -70,6 +73,7 @@ async fn main() -> std::io::Result<()> {
         App::new()
             .app_data(Data::new(state))
             .service(get_sort)
+            .service(save_sorts)
     })
         .bind(("127.0.0.1", 8080))?
         .run()
