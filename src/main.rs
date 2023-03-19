@@ -42,12 +42,17 @@ async fn get_sort(params: web::Path<(String, usize)>, state: Data<State>) -> imp
         "selection" => {
             let selection = state.selection.lock().unwrap();
             let val = Some(selection[index].clone());
-            HttpResponse::Ok().append_header(("Access-Control-Allow-Origin", "*")).body(format!("{:?}", val))
+            HttpResponse::Ok().append_header(("Access-Control-Allow-Origin", "*")).body(format!("{:?}", val.unwrap()))
         }
         "insertion" => {
             let insertion = state.insertion.lock().unwrap();
-            let val = Some(insertion[index].clone());
-            HttpResponse::Ok().append_header(("Access-Control-Allow-Origin", "*")).body(format!("{:?}", val))
+            if insertion.len() > index {
+                let val = Some(insertion[index].clone());
+                HttpResponse::Ok().append_header(("Access-Control-Allow-Origin", "*")).body(format!("{:?}", val.unwrap()))
+            }
+            else {
+                HttpResponse::BadRequest().append_header(("Access-Control-Allow-Origin", "*")).body("[]")
+            }
         }
         _ => {
             HttpResponse::BadRequest().append_header(("Access-Control-Allow-Origin", "*")).body(format!("these aren't the droids you're looking for"))
@@ -82,6 +87,7 @@ async fn main() -> std::io::Result<()> {
         selection: Arc::new(Mutex::new(Vec::new())),
         insertion: Arc::new(Mutex::new(Vec::new())),
     };
+    state.update_state();
     HttpServer::new(move || {
         App::new()
             .app_data(Data::new(state.clone()))

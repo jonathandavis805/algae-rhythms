@@ -1,7 +1,7 @@
 import Head from 'next/head'
 import {Inter} from 'next/font/google'
 import styles from '@/styles/Home.module.css'
-import React, {useEffect, useState} from "react";
+import React, {useEffect, useRef, useState} from "react";
 import {Scatter} from "react-chartjs-2";
 import {Chart, Legend, LinearScale, LineElement, PointElement, Tooltip} from "chart.js";
 import Slider from 'rc-slider';
@@ -25,18 +25,12 @@ export const data = {
     datasets: [
         {
             label: 'selection',
-            data: Array.from({length: 100}, (el, e) => ({
-                x: e,
-                y: Math.random()
-            })),
+            data: [],
             backgroundColor: 'rgba(255, 99, 132, 1)',
         },
         {
             label: 'insertion',
-            data: Array.from({length: 100}, (el, e) => ({
-                x: e,
-                y: Math.random()
-            })),
+            data: [],
             backgroundColor: 'rgb(132,189,255)',
         },
     ],
@@ -45,10 +39,23 @@ export const data = {
 
 export default function Home() {
     const [index, setIndex] = useState(0);
+    const chartRef = useRef(null)
     useEffect(() => {
         console.log("index changed")
-        axios.get(`http://127.0.0.1:8080/test/${index}`).then(res => {
+        axios.get(`http://127.0.0.1:8080/insertion/${index}`).then(res => {
             console.log(res);
+            chartRef.current.data.datasets[1].data = res.data.map((el: number, e: number) => {
+                return {
+                    x: e,
+                    y: el
+                }
+            });
+            console.log(data)
+            if (chartRef.current) {
+                console.log("test")
+                chartRef.current.update()
+
+            }
         })
     }, [index])
     return (
@@ -60,8 +67,8 @@ export default function Home() {
                 <link rel="icon" href="/favicon.ico"/>
             </Head>
             <main className={styles.main}>
-                <Scatter options={options} data={data}/>
-                <Slider onChange={(e) => {
+                <Scatter ref={chartRef} options={options} data={data}/>
+                <Slider max={1000} onChange={(e) => {
                     if (typeof (e) == "number") {
                         setIndex(e)
                     }
