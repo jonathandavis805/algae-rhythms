@@ -6,6 +6,7 @@ import {Scatter} from "react-chartjs-2";
 import {Chart, Legend, LinearScale, LineElement, PointElement, Tooltip} from "chart.js";
 import Slider from 'rc-slider';
 import 'rc-slider/assets/index.css';
+import axios from "axios";
 
 
 const inter = Inter({subsets: ['latin']})
@@ -46,7 +47,9 @@ export default function Home() {
     const [index, setIndex] = useState(0);
     useEffect(() => {
         console.log("index changed")
-
+        axios.get(`http://127.0.0.1:8080/test/${index}`).then(res => {
+            console.log(res);
+        })
     }, [index])
     return (
         <>
