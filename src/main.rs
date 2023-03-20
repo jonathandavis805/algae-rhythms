@@ -37,22 +37,23 @@ async fn get_sort(params: web::Path<(String, usize)>, state: Data<State>) -> imp
     let params_inner = params.into_inner();
     println!("sort_type: {}", params_inner.0);
     println!("index: {}", params_inner.1);
-    let index = params_inner.1;
+    let mut index = params_inner.1;
     match params_inner.0.as_str() {
         "selection" => {
             let selection = state.selection.lock().unwrap();
+            if selection.len() <= index {
+                index = selection.len() - 1;
+            }
             let val = Some(selection[index].clone());
             HttpResponse::Ok().append_header(("Access-Control-Allow-Origin", "*")).body(format!("{:?}", val.unwrap()))
         }
         "insertion" => {
             let insertion = state.insertion.lock().unwrap();
-            if insertion.len() > index {
-                let val = Some(insertion[index].clone());
-                HttpResponse::Ok().append_header(("Access-Control-Allow-Origin", "*")).body(format!("{:?}", val.unwrap()))
+            if insertion.len() <= index {
+                index = insertion.len() - 1;
             }
-            else {
-                HttpResponse::BadRequest().append_header(("Access-Control-Allow-Origin", "*")).body("[]")
-            }
+            let val = Some(insertion[index].clone());
+            HttpResponse::Ok().append_header(("Access-Control-Allow-Origin", "*")).body(format!("{:?}", val.unwrap()))
         }
         _ => {
             HttpResponse::BadRequest().append_header(("Access-Control-Allow-Origin", "*")).body(format!("these aren't the droids you're looking for"))

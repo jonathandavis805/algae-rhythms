@@ -42,6 +42,21 @@ export default function Home() {
     const chartRef = useRef(null)
     useEffect(() => {
         console.log("index changed")
+        axios.get(`http://127.0.0.1:8080/selection/${index}`).then(res => {
+            console.log(res);
+            chartRef.current.data.datasets[0].data = res.data.map((el: number, e: number) => {
+                return {
+                    x: e,
+                    y: el
+                }
+            });
+            console.log(data)
+            if (chartRef.current) {
+                console.log("test")
+                chartRef.current.update()
+
+            }
+        })
         axios.get(`http://127.0.0.1:8080/insertion/${index}`).then(res => {
             console.log(res);
             chartRef.current.data.datasets[1].data = res.data.map((el: number, e: number) => {
@@ -68,7 +83,7 @@ export default function Home() {
             </Head>
             <main className={styles.main}>
                 <Scatter ref={chartRef} options={options} data={data}/>
-                <Slider max={1000} onChange={(e) => {
+                <Slider step={5} max={1000} onChange={(e) => {
                     if (typeof (e) == "number") {
                         setIndex(e)
                     }
