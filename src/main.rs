@@ -6,6 +6,7 @@ use std::io::Read;
 use std::ops::{Deref, Index};
 use std::slice::SliceIndex;
 use std::sync::{Arc, Mutex};
+use serde::{Deserialize, Serialize};
 
 use actix_web::{App, get, HttpResponse, HttpServer, post, Responder, web};
 use actix_web::web::Data;
@@ -17,19 +18,24 @@ mod sorting;
 
 #[post("save")]
 async fn save_sorts(mut state: Data<State>) -> impl Responder {
-    let mut rng = rand::thread_rng();
+    let mut insertion_rng = rand::thread_rng();
+    let mut selection_rng = rand::thread_rng();
     let selection_file: File = File::create("./sorted/selection.json").unwrap();
     let insertion_file: File = File::create("./sorted/insertion.json").unwrap();
     let length = 0..1000;
-    let mut rand_vec: Vec<i32> = (length.clone()).map(|_| rng.gen_range(length.clone())).collect();
-    let mut selection_vec = rand_vec.clone();
-    selection(&mut selection_vec, Option::Some(selection_file));
-    let mut insertion_vec = rand_vec.clone();
-    insertion(&mut insertion_vec, Option::Some(insertion_file));
+    let mut rand_vec_for_selection: Vec<i32> = (length.clone()).map(|_| selection_rng.gen_range(length.clone())).collect();
+    let mut rand_vec_for_insertion: Vec<i32> = (length.clone()).map(|_| insertion_rng.gen_range(length.clone())).collect();
+    selection(&mut rand_vec_for_selection, Some(selection_file));
+    insertion(&mut rand_vec_for_insertion, Some(insertion_file));
     state.update_state();
     HttpResponse::Ok().append_header(("Access-Control-Allow-Origin", "*")).body(format!("new sorts saved"))
 }
 
+#[derive(Serialize, Deserialize)]
+struct ApiReturn {
+    values: Vec<i32>,
+    steps: i32
+}
 
 #[get("{sort_type}/{index}")]
 async fn get_sort(params: web::Path<(String, usize)>, state: Data<State>) -> impl Responder {
@@ -44,16 +50,20 @@ async fn get_sort(params: web::Path<(String, usize)>, state: Data<State>) -> imp
             if selection.len() <= index {
                 index = selection.len() - 1;
             }
-            let val = Some(selection[index].clone());
-            HttpResponse::Ok().append_header(("Access-Control-Allow-Origin", "*")).body(format!("{:?}", val.unwrap()))
+            let val = selection[index].clone();
+            let ret = ApiReturn { values: val, steps: selection.len() as i32 };
+            let str_val = serde_json::to_string(&ret).unwrap();
+            HttpResponse::Ok().append_header(("Access-Control-Allow-Origin", "*")).body(str_val)
         }
         "insertion" => {
             let insertion = state.insertion.lock().unwrap();
             if insertion.len() <= index {
                 index = insertion.len() - 1;
             }
-            let val = Some(insertion[index].clone());
-            HttpResponse::Ok().append_header(("Access-Control-Allow-Origin", "*")).body(format!("{:?}", val.unwrap()))
+            let val = insertion[index].clone();
+            let ret = ApiReturn { values: val, steps: insertion.len() as i32 };
+            let str_val = serde_json::to_string(&ret).unwrap();
+            HttpResponse::Ok().append_header(("Access-Control-Allow-Origin", "*")).body(str_val)
         }
         _ => {
             HttpResponse::BadRequest().append_header(("Access-Control-Allow-Origin", "*")).body(format!("these aren't the droids you're looking for"))

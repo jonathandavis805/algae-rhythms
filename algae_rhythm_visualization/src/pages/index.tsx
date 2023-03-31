@@ -1,15 +1,13 @@
 import Head from 'next/head'
-import {Inter} from 'next/font/google'
 import styles from '@/styles/Home.module.css'
-import React, {useEffect, useRef, useState} from "react";
+import React, {ForwardedRef, useEffect, useRef, useState} from "react";
 import {Scatter} from "react-chartjs-2";
 import {Chart, Legend, LinearScale, LineElement, PointElement, Tooltip} from "chart.js";
 import Slider from 'rc-slider';
 import 'rc-slider/assets/index.css';
 import axios from "axios";
+import {ChartJSOrUndefined} from "react-chartjs-2/dist/types";
 
-
-const inter = Inter({subsets: ['latin']})
 
 Chart.register(LinearScale, PointElement, LineElement, Tooltip, Legend);
 
@@ -36,43 +34,56 @@ export const data = {
     ],
 };
 
+function getApiData(index: number, controller: AbortController, chartRef: React.MutableRefObject<any>, apiPath: string, dataIndex: number) {
+    return axios.get(`http://127.0.0.1:8080/${apiPath}/${index}`, {signal: controller.signal})
+        .then(res => {
+            chartRef.current.data.datasets[dataIndex].data = res.data.values.map((el: number, e: number) => {
+                return {
+                    x: e,
+                    y: el
+                }
+            });
+            return res.data.steps;
+        }).catch(err => {
+            console.log(err)
+        })
+}
+
+class Requests {
+    abort: AbortController = new AbortController();
+    insertionPromise: Promise<any>;
+    selectionPromise: Promise<any>;
+
+    constructor(selectionPromise: Promise<any>, insertionPromise: Promise<any>) {
+        this.selectionPromise = selectionPromise;
+        this.insertionPromise = insertionPromise;
+    }
+
+    waitForAll(chartRef: React.MutableRefObject<any>, slider) {
+        Promise.all([this.insertionPromise, this.selectionPromise]).then(r => {
+            console.log(r)
+            let max = r.sort()[0]
+            console.log(max)
+            slider(max)
+            chartRef.current.update()
+        })
+    }
+}
 
 export default function Home() {
     const [index, setIndex] = useState(0);
-    const chartRef = useRef(null)
+    const [maxSteps, setMaxSteps] = useState(1);
+    const controller = new AbortController();
+    const chartRef: ForwardedRef<ChartJSOrUndefined<"scatter", never[], unknown>> | undefined = useRef(null)
     useEffect(() => {
-        console.log("index changed")
-        axios.get(`http://127.0.0.1:8080/selection/${index}`).then(res => {
-            console.log(res);
-            chartRef.current.data.datasets[0].data = res.data.map((el: number, e: number) => {
-                return {
-                    x: e,
-                    y: el
-                }
-            });
-            console.log(data)
-            if (chartRef.current) {
-                console.log("test")
-                chartRef.current.update()
-
-            }
-        })
-        axios.get(`http://127.0.0.1:8080/insertion/${index}`).then(res => {
-            console.log(res);
-            chartRef.current.data.datasets[1].data = res.data.map((el: number, e: number) => {
-                return {
-                    x: e,
-                    y: el
-                }
-            });
-            console.log(data)
-            if (chartRef.current) {
-                console.log("test")
-                chartRef.current.update()
-
-            }
-        })
-    }, [index])
+            console.log("index changed");
+            let newRequests = new Requests(
+                getApiData(index, controller, chartRef, "selection", 0),
+                getApiData(index, controller, chartRef, "insertion", 1)
+            )
+            newRequests.waitForAll(chartRef, setMaxSteps);
+        }, [index]
+    )
     return (
         <>
             <Head>
@@ -83,11 +94,14 @@ export default function Home() {
             </Head>
             <main className={styles.main}>
                 <Scatter ref={chartRef} options={options} data={data}/>
-                <Slider step={5} max={1000} onChange={(e) => {
-                    if (typeof (e) == "number") {
-                        setIndex(e)
-                    }
-                }}/>
+                {"Sort Steps"}
+                <Slider step={1}
+                        max={maxSteps}
+                        onChange={(e) => {
+                            if (typeof (e) == "number") {
+                                setIndex(e)
+                            }
+                        }}/>
             </main>
         </>
     )
